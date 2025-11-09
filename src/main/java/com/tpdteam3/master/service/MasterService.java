@@ -13,15 +13,18 @@ public class MasterService {
     // Almacena metadatos de archivos en memoria
     private final Map<String, FileMetadata> fileMetadataStore = new ConcurrentHashMap<>();
 
-    // Lista de chunkservers disponibles
+    // Lista de chunkservers disponibles CON context-path
     private final List<String> chunkservers = new ArrayList<>();
     private int nextChunkserverIndex = 0;
 
     public MasterService() {
-        // Registrar chunkservers (simplificado - 3 servidores)
-        chunkservers.add("http://localhost:9001");
-        chunkservers.add("http://localhost:9002");
-        chunkservers.add("http://localhost:9003");
+        // ✅ CORRECCIÓN: Registrar chunkservers CON el context-path /chunkserver
+        chunkservers.add("http://localhost:9001/chunkserver");
+        chunkservers.add("http://localhost:9002/chunkserver");
+        chunkservers.add("http://localhost:9003/chunkserver");
+
+        System.out.println("✅ Master Service iniciado con " + chunkservers.size() + " chunkservers:");
+        chunkservers.forEach(cs -> System.out.println("   - " + cs));
     }
 
     /**
@@ -34,11 +37,16 @@ public class MasterService {
         int chunkSize = 512 * 1024;
         int numChunks = (int) Math.ceil((double) fileSize / chunkSize);
 
+        System.out.println("📋 Planificando upload para imagen: " + imagenId);
+        System.out.println("   Tamaño: " + fileSize + " bytes");
+        System.out.println("   Fragmentos necesarios: " + numChunks);
+
         // Asignar cada fragmento a un chunkserver (round-robin simplificado)
         for (int i = 0; i < numChunks; i++) {
             String chunkserver = getNextChunkserver();
             ChunkMetadata chunk = new ChunkMetadata(i, chunkserver, chunkserver);
             metadata.getChunks().add(chunk);
+            System.out.println("   Fragmento " + i + " → " + chunkserver);
         }
 
         // Guardar metadatos
@@ -63,6 +71,7 @@ public class MasterService {
      */
     public void deleteFile(String imagenId) {
         fileMetadataStore.remove(imagenId);
+        System.out.println("🗑️ Metadatos eliminados para: " + imagenId);
     }
 
     /**
@@ -87,6 +96,7 @@ public class MasterService {
     public void registerChunkserver(String url) {
         if (!chunkservers.contains(url)) {
             chunkservers.add(url);
+            System.out.println("✅ Nuevo chunkserver registrado: " + url);
         }
     }
 
