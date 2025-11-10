@@ -1,6 +1,5 @@
 package com.tpdteam3.master.model;
 
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,10 +53,14 @@ public class FileMetadata {
         this.timestamp = timestamp;
     }
 
+    /**
+     * Metadata de un chunk con soporte para múltiples réplicas
+     */
     public static class ChunkMetadata {
         private int chunkIndex;
         private String chunkserverId;
         private String chunkserverUrl;
+        private int replicaIndex; // 0 = primaria, 1+ = réplicas
 
         public ChunkMetadata() {
         }
@@ -66,6 +69,7 @@ public class FileMetadata {
             this.chunkIndex = chunkIndex;
             this.chunkserverId = chunkserverId;
             this.chunkserverUrl = chunkserverUrl;
+            this.replicaIndex = 0; // Por defecto es primaria
         }
 
         public int getChunkIndex() {
@@ -90,6 +94,23 @@ public class FileMetadata {
 
         public void setChunkserverUrl(String chunkserverUrl) {
             this.chunkserverUrl = chunkserverUrl;
+        }
+
+        public int getReplicaIndex() {
+            return replicaIndex;
+        }
+
+        public void setReplicaIndex(int replicaIndex) {
+            this.replicaIndex = replicaIndex;
+        }
+
+        @Override
+        public String toString() {
+            return "ChunkMetadata{" +
+                   "chunkIndex=" + chunkIndex +
+                   ", replicaIndex=" + replicaIndex +
+                   ", chunkserverUrl='" + chunkserverUrl + '\'' +
+                   '}';
         }
     }
 }
