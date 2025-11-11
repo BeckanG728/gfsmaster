@@ -23,9 +23,9 @@ public class MasterService {
 
     public MasterService() {
         // Registrar chunkservers CON el context-path /chunkserver
-        chunkservers.add("http://localhost:9001/chunkserver");
-        chunkservers.add("http://localhost:9002/chunkserver");
-        chunkservers.add("http://localhost:9003/chunkserver");
+        chunkservers.add("https://backend.tpdteam3.com/chunkserver1");
+        chunkservers.add("https://backend.tpdteam3.com/chunkserver2");
+        chunkservers.add("https://backend.tpdteam3.com/chunkserver3");
 
         System.out.println("╔════════════════════════════════════════════════════════╗");
         System.out.println("║         🚀 MASTER SERVICE CON REPLICACIÓN              ║");
