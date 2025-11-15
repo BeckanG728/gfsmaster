@@ -2,16 +2,20 @@ package com.tpdteam3.master.service;
 
 import com.tpdteam3.master.model.FileMetadata;
 import com.tpdteam3.master.model.FileMetadata.ChunkMetadata;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class MasterService {
 
-    // Almacena metadatos de archivos en memoria
-    private final Map<String, FileMetadata> fileMetadataStore = new ConcurrentHashMap<>();
+    @Autowired
+    private MetadataPersistenceService persistenceService;
+
+    // Almacena metadatos de archivos en memoria (cargados desde disco)
+    private Map<String, FileMetadata> fileMetadataStore;
 
     // Lista de chunkservers disponibles CON context-path
     private final List<String> chunkservers = new ArrayList<>();
@@ -21,16 +25,22 @@ public class MasterService {
     private static final int REPLICATION_FACTOR = 3; // Número de réplicas por chunk
     private static final int CHUNK_SIZE = 32 * 1024; // 32KB por fragmento
 
-    public MasterService() {
-        // Registrar chunkservers CON el context-path /chunkserver
-        chunkservers.add("https://backend.tpdteam3.com/chunkserver1");
-        chunkservers.add("https://backend.tpdteam3.com/chunkserver2");
-        chunkservers.add("https://backend.tpdteam3.com/chunkserver3");
-
+    @PostConstruct
+    public void init() {
         System.out.println("╔════════════════════════════════════════════════════════╗");
         System.out.println("║         🚀 MASTER SERVICE CON REPLICACIÓN              ║");
         System.out.println("╚════════════════════════════════════════════════════════╝");
+
+        // 1. CARGAR METADATOS DESDE DISCO
+        fileMetadataStore = persistenceService.loadMetadata();
+
+        // 2. Registrar chunkservers CON el context-path
+        chunkservers.add("http://localhost:9001/chunkserver1");
+        chunkservers.add("http://localhost:9002/chunkserver2");
+        chunkservers.add("http://localhost:9003/chunkserver3");
+
         System.out.println("📊 Configuración:");
+        System.out.println("   ├─ Metadatos recuperados: " + fileMetadataStore.size() + " archivos");
         System.out.println("   ├─ Chunkservers disponibles: " + chunkservers.size());
         chunkservers.forEach(cs -> System.out.println("   │  └─ " + cs));
         System.out.println("   ├─ Factor de replicación: " + REPLICATION_FACTOR + "x");
@@ -72,11 +82,12 @@ public class MasterService {
             }
         }
 
-        // Guardar metadatos
+        // Guardar metadatos EN MEMORIA Y DISCO
         fileMetadataStore.put(imagenId, metadata);
+        persistenceService.saveFileMetadata(fileMetadataStore);
 
         System.out.println();
-        System.out.println("✅ Plan de replicación creado exitosamente");
+        System.out.println("✅ Plan de replicación creado y persistido");
         System.out.println("   Total de escrituras: " + metadata.getChunks().size());
         System.out.println();
 
@@ -104,8 +115,7 @@ public class MasterService {
     }
 
     /**
-     * Obtiene metadatos de un archivo
-     * Agrupa las réplicas por chunk index para facilitar la lectura
+     * Obtiene metadatos de un archivo DESDE MEMORIA (cargado desde disco al inicio)
      */
     public FileMetadata getMetadata(String imagenId) {
         FileMetadata metadata = fileMetadataStore.get(imagenId);
@@ -120,13 +130,14 @@ public class MasterService {
     }
 
     /**
-     * Elimina metadatos de un archivo
+     * Elimina metadatos de un archivo DE MEMORIA Y DISCO
      */
     public void deleteFile(String imagenId) {
         FileMetadata metadata = fileMetadataStore.remove(imagenId);
         if (metadata != null) {
-            System.out.println("🗑️ Metadatos eliminados para: " + imagenId);
-            System.out.println("   Réplicas a eliminar: " + metadata.getChunks().size());
+            persistenceService.deleteFileMetadata(imagenId, fileMetadataStore);
+            System.out.println("🗑️ Metadatos eliminados de memoria y disco: " + imagenId);
+            System.out.println("   Réplicas eliminadas: " + metadata.getChunks().size());
         }
     }
 
@@ -167,6 +178,10 @@ public class MasterService {
         health.put("availableChunkservers", chunkservers.size());
         health.put("requiredForReplication", REPLICATION_FACTOR);
         health.put("canMaintainReplication", chunkservers.size() >= REPLICATION_FACTOR);
+        health.put("filesInMemory", fileMetadataStore.size());
+
+        // Agregar estadísticas de persistencia
+        health.putAll(persistenceService.getStorageStats());
 
         return health;
     }
@@ -209,6 +224,9 @@ public class MasterService {
 
         // Estado de salud
         stats.put("healthStatus", getHealthStatus());
+
+        // Estadísticas de persistencia
+        stats.put("persistenceStats", persistenceService.getStorageStats());
 
         return stats;
     }
